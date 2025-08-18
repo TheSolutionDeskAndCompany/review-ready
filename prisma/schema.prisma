@@ -1,0 +1,175 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  owner
+  admin
+  member
+}
+
+enum Plan {
+  starter
+  pro
+  agency
+}
+
+enum Provider {
+  google
+  yelp
+  facebook
+}
+
+enum ReplyStatus {
+  posted
+  queued
+  failed
+  linkout
+}
+
+model Organization {
+  id             String         @id @default(uuid())
+  name           String
+  createdAt      DateTime       @default(now()) @map("created_at")
+  memberships    Membership[]
+  locations      Location[]
+  reviews        Review[]
+  subscriptions  Subscription?
+  syncCursors    SyncCursor[]
+  oauthConnections OAuthConnection[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  name         String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  memberships  Membership[]
+
+  @@map("users")
+}
+
+model Membership {
+  orgId    String       @map("org_id")
+  userId   String       @map("user_id")
+  role     MembershipRole
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@id([orgId, userId])
+  @@map("memberships")
+}
+
+model OAuthConnection {
+  id                 String    @id @default(uuid())
+  orgId              String    @map("org_id")
+  provider           Provider
+  accountExternalId  String    @map("account_external_id")
+  accessToken        String    @map("access_token")
+  refreshToken       String?   @map("refresh_token")
+  expiresAt          DateTime? @map("expires_at")
+  scopes             String?
+  rawProfile         Json?     @map("raw_profile")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  org                Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, accountExternalId])
+  @@map("oauth_connections")
+}
+
+model Location {
+  id        String           @id @default(uuid())
+  orgId     String           @map("org_id")
+  name      String
+  address   String?
+  phone     String?
+  metadata  Json?
+  createdAt DateTime         @default(now()) @map("created_at")
+  org       Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sources   LocationSource[]
+  reviews   Review[]
+
+  @@map("locations")
+}
+
+model LocationSource {
+  id                 String   @id @default(uuid())
+  locationId         String   @map("location_id")
+  provider           Provider
+  providerLocationId String   @map("provider_location_id")
+  providerPlaceUrl   String?  @map("provider_place_url")
+  location           Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerLocationId])
+  @@map("location_sources")
+}
+
+model Review {
+  id                String        @id @default(uuid())
+  orgId             String        @map("org_id")
+  locationId        String        @map("location_id")
+  provider          Provider
+  providerReviewId  String        @map("provider_review_id")
+  rating            Int?
+  authorName        String?       @map("author_name")
+  authorProfileUrl  String?       @map("author_profile_url")
+  text              String?
+  createdAt         DateTime?     @map("created_at")
+  updatedAt         DateTime?     @map("updated_at")
+  raw               Json?
+  replies           ReviewReply[]
+  org               Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  location          Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerReviewId])
+  @@map("reviews")
+}
+
+model ReviewReply {
+  id        String    @id @default(uuid())
+  reviewId  String    @map("review_id")
+  provider  Provider?
+  body      String
+  postedAt  DateTime? @map("posted_at")
+  status    ReplyStatus @default(queued)
+  error     String?
+  review    Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_replies")
+}
+
+model SyncCursor {
+  id        String   @id @default(uuid())
+  orgId     String?  @map("org_id")
+  provider  Provider
+  cursor    String?
+  updatedAt DateTime @default(now()) @map("updated_at")
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, provider])
+  @@map("sync_cursors")
+}
+
+model Subscription {
+  orgId                String   @id @map("org_id")
+  stripeCustomerId     String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  plan                 Plan
+  status              String?
+  currentPeriodEnd    DateTime? @map("current_period_end")
+  org                 Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
