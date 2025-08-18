@@ -162,6 +162,31 @@ model SyncCursor {
   @@map("sync_cursors")
 }
 
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  status      String    @default("queued") // queued | running | succeeded | failed
+  payload     Json
+  result      Json?
+  error       String?
+  orgId       String?
+  userId      String?
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  events      JobEvent[]
+}
+
+model JobEvent {
+  id        String   @id @default(cuid())
+  jobId     String
+  createdAt DateTime @default(now())
+  level     String   @default("info") // info | error | warn
+  message   String
+  meta      Json?
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
 model Subscription {
   orgId                String   @id @map("org_id")
   stripeCustomerId     String?  @unique @map("stripe_customer_id")
