@@ -36,15 +36,17 @@ enum ReplyStatus {
 }
 
 model Organization {
-  id             String         @id @default(uuid())
-  name           String
-  createdAt      DateTime       @default(now()) @map("created_at")
-  memberships    Membership[]
-  locations      Location[]
-  reviews        Review[]
-  subscriptions  Subscription?
-  syncCursors    SyncCursor[]
-  oauthConnections OAuthConnection[]
+  id                String           @id @default(uuid())
+  name              String
+  createdAt         DateTime         @default(now()) @map("created_at")
+  memberships       Membership[]
+  locations         Location[]
+  reviews           Review[]
+  subscriptions     Subscription?
+  syncCursors       SyncCursor[]
+  oauthConnections  OAuthConnection[]
+  reviewReplies     ReviewReply[]    @relation("OrgToReplies")
+  locationSources   LocationSource[]
 
   @@map("organizations")
 }
@@ -105,12 +107,14 @@ model Location {
 }
 
 model LocationSource {
-  id                 String   @id @default(uuid())
-  locationId         String   @map("location_id")
+  id                 String       @id @default(uuid())
+  locationId         String       @map("location_id")
   provider           Provider
-  providerLocationId String   @map("provider_location_id")
-  providerPlaceUrl   String?  @map("provider_place_url")
-  location           Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  providerLocationId String       @map("provider_location_id")
+  providerPlaceUrl   String?      @map("provider_place_url")
+  orgId              String       @map("org_id")
+  location           Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  org                Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerLocationId])
   @@map("location_sources")
@@ -122,30 +126,38 @@ model Review {
   locationId        String        @map("location_id")
   provider          Provider
   providerReviewId  String        @map("provider_review_id")
+  externalId        String?       @map("external_id")  // External ID from the review platform
   rating            Int?
   authorName        String?       @map("author_name")
   authorProfileUrl  String?       @map("author_profile_url")
+  authorUrl         String?       @map("author_url")  // URL to the author's profile
   text              String?
+  platformUrl       String?       @map("platform_url")  // URL to the review on the platform
   createdAt         DateTime?     @map("created_at")
   updatedAt         DateTime?     @map("updated_at")
   raw               Json?
-  replies           ReviewReply[]
+  replies           ReviewReply[] @relation("ReviewToReplies")
   org               Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   location          Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerReviewId])
+  @@unique([provider, externalId])
   @@map("reviews")
 }
 
 model ReviewReply {
-  id        String    @id @default(uuid())
-  reviewId  String    @map("review_id")
+  id        String       @id @default(uuid())
+  reviewId  String       @map("review_id")
+  orgId     String       @map("org_id")
   provider  Provider?
   body      String
-  postedAt  DateTime? @map("posted_at")
-  status    ReplyStatus @default(queued)
+  postedAt  DateTime?    @map("posted_at")
+  status    ReplyStatus  @default(queued)
   error     String?
-  review    Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  
+  // Relations
+  review    Review       @relation("ReviewToReplies", fields: [reviewId], references: [id], onDelete: Cascade)
+  org       Organization @relation("OrgToReplies", fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("review_replies")
 }

@@ -24,6 +24,7 @@
     "@stripe/stripe-js": "^7.8.0",
     "@types/stripe": "^8.0.417",
     "@upstash/qstash": "^2.8.2",
+    "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "^1.35.3",
     "bullmq": "^5.58.0",
     "class-variance-authority": "^0.7.1",
